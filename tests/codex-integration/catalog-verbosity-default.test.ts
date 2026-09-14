@@ -61,6 +61,30 @@ describe("catalog — default_verbosity is dropped when verbosity is unsupported
     expect(kiro?.default_verbosity).toBeUndefined();
   });
 
+  test("GREEN: a Baseten routed row opts out, defaults included", async () => {
+    // #4630: Baseten Model APIs are Chat Completions only, so `text.verbosity`
+    // — a Responses-only parameter — has nowhere to land. Advertising it made
+    // Codex send `text: { verbosity: "low" }` and the turn 400 before any model
+    // output. The opt-out is provider-wide because Baseten's catalog is live-
+    // discovered: a slug that arrives tomorrow supports it no more than this one.
+    const models = await gatherRoutedModels({
+      providers: {
+        baseten: {
+          adapter: "openai-chat",
+          baseUrl: "https://inference.baseten.co/v1",
+          authMode: "key",
+          liveModels: false,
+          models: ["deepseek-ai/DeepSeek-V4.1-Flash"],
+        },
+      },
+    });
+    const entries = buildCatalogEntries(null, [], models);
+    const baseten = entries.find(e => e.slug?.startsWith("baseten/"));
+
+    expect(baseten?.support_verbosity).toBe(false);
+    expect(baseten?.default_verbosity).toBeUndefined();
+  });
+
   test("CONTROL: rows that never declare a capability keep the permissive default", async () => {
     const models = await gatherRoutedModels({
       providers: {
