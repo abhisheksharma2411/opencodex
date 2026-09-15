@@ -85,6 +85,36 @@ describe("catalog — default_verbosity is dropped when verbosity is unsupported
     expect(baseten?.default_verbosity).toBeUndefined();
   });
 
+  test("GREEN: a slug that only live discovery knows about opts out too", async () => {
+    // The opt-out is provider-wide precisely because baseten is `liveModels: true`:
+    // a pinned per-model map would leave tomorrow's discovered id advertising the
+    // control again. Seeding NO static models and letting discovery supply the slug
+    // is what makes that claim testable rather than a comment (raised in review of
+    // #4660 by @coderabbitai and @lidge-jun).
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      if (!String(input).includes("/models")) return new Response(null, { status: 404 });
+      return Response.json({ data: [{ id: "deepseek-ai/DeepSeek-V4.1-Flash" }] });
+    }) as typeof fetch;
+
+    const models = await gatherRoutedModels({
+      providers: {
+        baseten: {
+          adapter: "openai-chat",
+          baseUrl: "https://inference.baseten.co/v1",
+          authMode: "key",
+          apiKey: "test-key",
+          liveModels: true,
+        },
+      },
+    });
+    const entries = buildCatalogEntries(null, [], models);
+    const baseten = entries.find(e => e.slug?.startsWith("baseten/"));
+
+    expect(baseten, "live discovery must have produced a routed baseten row").toBeDefined();
+    expect(baseten?.support_verbosity).toBe(false);
+    expect(baseten?.default_verbosity).toBeUndefined();
+  });
+
   test("CONTROL: rows that never declare a capability keep the permissive default", async () => {
     const models = await gatherRoutedModels({
       providers: {
