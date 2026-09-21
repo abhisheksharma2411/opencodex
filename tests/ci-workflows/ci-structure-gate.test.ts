@@ -70,7 +70,7 @@ test("the aggregate gate expects the job instead of ignoring it", () => {
   expect(Array.isArray(gate?.needs) ? gate?.needs : []).toContain("widget");
   const script = (gate?.steps ?? []).map(step => step.run ?? "").join("\n");
   expect(script).toContain("structure-gate) echo \"$structure\" ;;");
-  expect(script).toContain("GATED_JOBS=\"$GATED_JOBS structure-gate widget\"");
+  expect(script).toContain("GATED_JOBS=\"$GATED_JOBS structure-gate privacy-gate widget\"");
   expect(script).toContain("|widget)");
   expect(script).toContain("CHANGES_STRUCTURE");
 });
