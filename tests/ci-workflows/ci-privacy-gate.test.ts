@@ -53,12 +53,35 @@ test("a devlog edit still does not start the cross-platform matrix", () => {
 
 test("the scan still runs for ordinary source changes, exactly once", () => {
   // `gates` keeps its own Privacy scan step, so a `ci`-scoped pull request is
-  // still covered by the path it always used. The new job must NOT also fire
-  // there: that would run the same scan twice on every source pull request.
+  // still covered by the path it always used. The new job must stand down there,
+  // or the same scan runs twice on the same commit.
+  //
+  // The first version of this test asserted only that privacy-gate's `if` did not
+  // MENTION `ci` — which passed while both jobs fired whenever both filters
+  // matched. `.github/workflows/ci.yml` is in both lists, and a change touching
+  // source and `devlog/` together sets both, so that case is ordinary rather than
+  // exotic. It took review on #5469 to catch. Assert the stand-down itself.
   const gates = workflow.jobs?.gates;
   expect((gates?.steps ?? []).some(step => step.run?.includes("bun run privacy:scan"))).toBe(true);
   expect(gates?.if).toContain("needs.changes.outputs.ci == 'true'");
-  expect(workflow.jobs?.["privacy-gate"]?.if).not.toContain("needs.changes.outputs.ci");
+
+  const privacyIf = workflow.jobs?.["privacy-gate"]?.if ?? "";
+  expect(privacyIf).toContain("needs.changes.outputs.privacy == 'true'");
+  expect(privacyIf).toContain("needs.changes.outputs.ci != 'true'");
+});
+
+test("both filters can match at once, which is why the stand-down is needed", () => {
+  // Not hypothetical: this workflow file is in both lists, so editing it sets
+  // `privacy` and `ci` together.
+  const shared = (filters.privacy ?? []).filter(path => (filters.ci ?? []).includes(path));
+  expect(shared).toContain(".github/workflows/ci.yml");
+});
+
+test("the aggregate gate applies the same stand-down", () => {
+  // If the expectation table says "requested" while the job stood down, the
+  // aggregate reads a skipped job as a failure. The two conditions must agree.
+  const script = (workflow.jobs?.ci?.steps ?? []).map(step => step.run ?? "").join("\n");
+  expect(script).toContain('[ "$CHANGES_PRIVACY" = "true" ] && [ "$CHANGES_CI" != "true" ]');
 });
 
 test("the push trigger keeps mirroring the ci filter exactly", () => {

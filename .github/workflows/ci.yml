@@ -1105,11 +1105,13 @@ jobs:
   privacy-gate:
     name: privacy gate
     needs: changes
-    # Deliberately NOT `|| needs.changes.outputs.ci == 'true'`: `gates` already
-    # runs the same scan whenever `ci` is true, and running it twice on an
-    # ordinary source pull request buys nothing. This job exists for the diffs
-    # `ci` does not match.
-    if: needs.changes.outputs.privacy == 'true'
+    # `gates` already runs the same scan whenever `ci` is true, so this job is
+    # for the diffs `ci` does NOT match -- and has to stand down when it does.
+    # Both filters list `.github/workflows/ci.yml`, and a change touching source
+    # and `devlog/` together sets both, so without the `ci != 'true'` arm the two
+    # jobs ran `privacy:scan` twice on the same commit. Caught in review on #5469;
+    # the first version only avoided firing on `ci` ALONE.
+    if: needs.changes.outputs.privacy == 'true' && needs.changes.outputs.ci != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -1370,7 +1372,9 @@ jobs:
             structure=requested
           fi
           privacy=not-requested
-          if [ "$CHANGES_PRIVACY" = "true" ]; then
+          # Mirrors privacy-gate's own `if:` exactly, including the ci stand-down.
+          # Drift here reads as "ran when not requested" and fails this gate.
+          if [ "$CHANGES_PRIVACY" = "true" ] && [ "$CHANGES_CI" != "true" ]; then
             privacy=requested
           fi
           dispatch=not-requested
