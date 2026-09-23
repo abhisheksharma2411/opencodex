@@ -88,3 +88,23 @@ maintainer. The `push` trigger's `paths` stay equal to the `ci` filter.
 `docs`, `structure`, `gui` and `packaging` are also consumed unvalidated from the filter.
 Closing that class belongs in its own change; it would alter pins in `ci-structure-gate.test.ts`
 and widen this pull request beyond the privacy gate.
+
+## Outcome
+
+Delivered on the contributor branch as the merge commit `3f4d7ad4fe` (dev `0f9254b564` merged).
+Cross-platform CI run 35819557849 at that head concluded success on every job, with
+`privacy gate` skipped as expected: this pull request edits `ci.yml`, so `ci` is true and
+`gates` ran the scan. The new executed cases passed on Linux and macOS:
+
+- `runs at most once for every event and scope, and exactly once for a devlog change` (b, a)
+- `is green on a devlog-only pull request only when the privacy gate ran` (a, c)
+- `a missing or malformed privacy output fails the changes job` (c)
+- `rejects a second scan on a pull request that gates already scans` (b)
+
+One more defect surfaced while merging: the branch's test pinned `ci.yml` as a literal entry of
+the `ci` filter, which on `dev` lists `.github/workflows/**` instead. The condition matrix
+replaced it.
+
+Left for a maintainer: the `maintainer-sponsored` label (`hygiene`, `enforce-target`), and the
+author's re-attestation of the readiness checklist, which `enforce-target` now requires because
+the body still carries the previous first item.
