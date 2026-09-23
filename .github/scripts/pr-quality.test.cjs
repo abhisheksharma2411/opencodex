@@ -1172,6 +1172,8 @@ describe("the latest-dev readiness box states the condition the gate enforces", 
     assert.equal(readiness.complete, true);
     assert.equal(readiness.total, 4);
     assert.equal(appendReviewReadinessSection(legacy), legacy);
+  });
+});
 
 describe("managed checklist wording classification", () => {
   const oldItem = "All CI tests are green on my local testing.";
