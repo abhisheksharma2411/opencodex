@@ -330,7 +330,7 @@ arguments with the same freeform body, the adapter keeps the JSON suffix only wh
 prefix, and wrapper's `input` value all agree. Mismatched markup and arguments remain byte-exact.
 Silent held-content frames emit adapter heartbeats. Terminal errors and transport read failures
 drain all held text, including matching serialized blocks, because pending tools are not dispatched.
-The held bytes use the shared translator budget. For a model opted into inline `<think>` splitting,
+The held bytes use the shared translator budget. The streaming hold is bounded (`ingestStreaming`): once a closed block is followed by more than 8 KiB of prose with no block open after it, or held text plus queued events would pass 4 MiB, everything held is released in order with nothing suppressed, so an unmatched block no longer delays the rest of the answer to the end of the turn. A duplicate is the tail of the content, so its reconciliation is unaffected; past either bound the stream prefers delivery (the pre-#5548 raw markup) over suppression. Buffered responses keep the unbounded `ingest` because their structured calls are already known (`tests/adapters/openai/openai-chat-serialized-tool-call-hold-bound.test.ts`). For a model opted into inline `<think>` splitting,
 reconciliation sees only the answer text the splitter emits. A reasoning event that arrives while
 a block candidate is held waits behind it and is released in its original position, so event order
 never changes and a duplicate is not exposed early; line and fence context carry across the
@@ -518,6 +518,13 @@ true `parallelToolCalls` is byte-identical to previous behavior.
 The flag constrains the model's output, not execution ordering. Sequential tool use
 is enforced by the caller's own loop returning each `tool_result` before issuing the
 next request; this mapping does not provide that.
+
+Claude Opus 5.5 is an upstream exception to the forced-choice mapping: Anthropic rejects
+`tool_choice: {type:"any"}` and `{type:"tool",name:...}` for that model, with or without
+adaptive thinking. The Anthropic adapter sends `{type:"auto"}` for those choices so the
+request succeeds, but the caller's forced-tool guarantee cannot be preserved; the prompt
+must provide any required tool-use instruction. Other Claude model families retain the
+normal forced-choice mapping unless their own upstream contract says otherwise.
 ## Unmapped modalities are recorded, not dropped
 
 The translated Chat route has no video mapping — this adapter does not implement one.

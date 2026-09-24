@@ -8,23 +8,22 @@ Two commands, and every one of them runs any LLM you point it at.</p>
 
 <p align="center">
   <a href="https://x.com/claudeebum"><img src="https://img.shields.io/badge/%40claudeebum-000000?logo=x&logoColor=white" alt="Follow @claudeebum on X"></a>
-  <a href="https://github.com/lidge-jun/opencodex/releases/latest"><img src="https://img.shields.io/github/v/release/lidge-jun/opencodex?label=desktop&logo=github&color=24292f" alt="Latest desktop release"></a>
   <a href="https://www.npmjs.com/package/@bitkyc08/opencodex"><img src="https://img.shields.io/npm/v/@bitkyc08/opencodex?color=cb3837&label=npm&logo=npm" alt="npm version"></a>
   <a href="https://github.com/lidge-jun/opencodex/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/@bitkyc08/opencodex?color=blue" alt="license"></a>
   <img src="https://img.shields.io/node/v/@bitkyc08/opencodex?logo=node.js&label=node" alt="node version">
 </p>
 
-<p align="center">
-  <a href="https://github.com/lidge-jun/opencodex/releases/latest"><img src="assets/download-macos.svg" alt="Download OpenCodex for macOS" width="220"></a>
-  <a href="https://github.com/lidge-jun/opencodex/releases/latest"><img src="assets/download-windows.svg" alt="Download OpenCodex for Windows" width="220"></a>
-  <a href="https://github.com/lidge-jun/opencodex/releases/latest"><img src="assets/download-linux.svg" alt="Download OpenCodex for Linux" width="220"></a>
-</p>
-<p align="center"><sub>Desktop app (beta): macOS universal <code>.dmg</code> · Windows x64 <code>.msi</code> · Linux x86_64 <code>.AppImage</code> / <code>.deb</code>. Prefer the terminal? Install the CLI:</sub></p>
-
 ```bash
 npm install -g @bitkyc08/opencodex
 ocx start
 ```
+
+<p align="center">
+  <a href="https://github.com/lidge-jun/opencodex/releases/latest"><img src="https://img.shields.io/badge/macOS-.dmg-24292f?logo=apple&logoColor=white" alt="Download for macOS (.dmg)"></a>
+  <a href="https://github.com/lidge-jun/opencodex/releases/latest"><img src="https://img.shields.io/badge/Windows-.msi-24292f?logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik0zIDNoOC41djguNUgzem05LjUgMEgyMXY4LjVoLTguNXpNMyAxMi41aDguNVYyMUgzem05LjUgMEgyMVYyMWgtOC41eiIvPjwvc3ZnPg==" alt="Download for Windows (.msi)"></a>
+  <a href="https://github.com/lidge-jun/opencodex/releases/latest"><img src="https://img.shields.io/badge/Linux-.AppImage-24292f?logo=linux&logoColor=white" alt="Download for Linux (.AppImage)"></a>
+  <a href="https://github.com/lidge-jun/opencodex/releases/latest"><img src="https://img.shields.io/badge/Linux-.deb-24292f?logo=debian&logoColor=white" alt="Download for Linux (.deb)"></a>
+</p>
 
 <table>
 <tr>
@@ -90,7 +89,21 @@ account while existing threads stay pinned to the account that started them.
 
 ## Quick start
 
-### Desktop app (beta)
+### Personal install (CLI)
+
+```bash
+npm install -g @bitkyc08/opencodex   # Node 18+; the Bun runtime is bundled automatically
+ocx start                         # proxy + dashboard on localhost:10100
+```
+
+Use `ocx service` to run it in the background.
+
+Open **http://localhost:10100** and configure everything in the web dashboard — add providers
+(40+ built-ins, or any OpenAI-compatible endpoint), pick models, manage accounts. `ocx gui`
+re-opens the dashboard at any time.
+
+<details>
+<summary><b>Desktop app (beta)</b></summary>
 
 The desktop app is the same proxy and dashboard in a native window, with a tray and bundled `ocx`.
 It attaches to a proxy that is already running, or starts its bundled one, and the dashboard stays
@@ -113,18 +126,7 @@ step needs macOS). The [Desktop App guide](https://opencodex.me/guides/desktop-a
 [macOS Menu Bar App guide](https://opencodex.me/guides/macos-menu-bar/) cover first launch, and
 [`AGENTS_INSTALL.md`](./AGENTS_INSTALL.md#where-things-are-installed) lists everything written to disk.
 
-### Personal install (CLI)
-
-```bash
-npm install -g @bitkyc08/opencodex   # Node 18+; the Bun runtime is bundled automatically
-ocx start                         # proxy + dashboard on localhost:10100
-```
-
-Use `ocx service` to run it in the background.
-
-Open **http://localhost:10100** and configure everything in the web dashboard — add providers
-(40+ built-ins, or any OpenAI-compatible endpoint), pick models, manage accounts. `ocx gui`
-re-opens the dashboard at any time.
+</details>
 
 ### ChatGPT account pool
 

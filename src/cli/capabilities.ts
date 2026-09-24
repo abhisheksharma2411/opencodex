@@ -807,6 +807,75 @@ export const CAPABILITIES: readonly Capability[] = [
     ],
   },
   {
+    command: ["claude", "desktop", "bind"],
+    summary: "First-party: serve a Claude Desktop Code tab picker model with an opencodex route.",
+    routes: [{ method: "PUT", path: "/api/claude-desktop/first-party-bindings" }],
+    flags: [],
+    mutates: true,
+    json: "none",
+    details: [
+      "Takes a picker model id (claude-sonnet-4-6) and a route in the Desktop route vocabulary (provider/model or native/<slug>); the route must be one the Desktop profile can offer.",
+      "Only Claude Code traffic that reaches the proxy through the first-party intercept (Desktop's Code tab, the claude CLI) honours it; ocx claude and the public Messages endpoint are unaffected.",
+      "The Desktop picker keeps Anthropic's label; the binding changes which model answers, starting with the next request.",
+    ],
+  },
+  {
+    command: ["claude", "desktop", "unbind"],
+    summary: "Remove a first-party Claude Desktop Code tab picker binding.",
+    routes: [{ method: "PUT", path: "/api/claude-desktop/first-party-bindings" }],
+    flags: [],
+    mutates: true,
+    json: "none",
+    details: [
+      "Removing an id that is not bound is a no-op; the remaining bindings are printed.",
+    ],
+  },
+  {
+    command: ["claude", "desktop", "picker", "status"],
+    summary: "First-party picker mode: whether Claude Desktop's Code tab lists opencodex models, and what is missing if not.",
+    routes: [{ method: "GET", path: "/api/claude-desktop/picker" }],
+    flags: [],
+    mutates: false,
+    json: "none",
+    details: [
+      "Reports desired, effective, keychain trust, the Desktop egress profile, the model count and a reason with the next command to run.",
+    ],
+  },
+  {
+    command: ["claude", "desktop", "picker", "on"],
+    summary: "Turn first-party picker mode on and remember the choice.",
+    routes: [{ method: "PUT", path: "/api/claude-desktop/picker" }],
+    flags: [],
+    mutates: true,
+    json: "none",
+    details: [
+      "Needs a running proxy, first-party mode and macOS. The first time, macOS asks to trust a local certificate authority limited to claude.ai; when the server cannot show that prompt the command runs the trust step in this terminal.",
+      "Claude Desktop then reaches the network through opencodex; fully quit and reopen Desktop afterwards.",
+    ],
+  },
+  {
+    command: ["claude", "desktop", "picker", "off"],
+    summary: "Turn first-party picker mode off, remove its Desktop egress profile and certificate trust, and remember the choice.",
+    routes: [{ method: "PUT", path: "/api/claude-desktop/picker" }],
+    flags: [],
+    mutates: true,
+    json: "none",
+    details: [
+      "Works without a running proxy: the preference is saved and the picker profile and trust are removed locally.",
+    ],
+  },
+  {
+    command: ["claude", "desktop", "picker", "trust"],
+    summary: "Run the macOS keychain step for picker mode in this terminal, then ask the server to finish enabling it.",
+    routes: [{ method: "PUT", path: "/api/claude-desktop/picker" }],
+    flags: [],
+    mutates: true,
+    json: "none",
+    details: [
+      "The server removes trust this command added if the enable is refused; if the request is lost, trust is left alone and picker status tells what happened.",
+    ],
+  },
+  {
     command: ["integration", "native"],
     summary: "Show or toggle the native Claude, Claude Desktop, Codex, and Grok integrations, and read the Cursor status (which builds are installed, gateway values, last request seen).",
     routes: [

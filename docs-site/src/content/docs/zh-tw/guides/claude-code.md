@@ -101,7 +101,56 @@ Claude Code 需要在 `ANTHROPIC_AUTH_TOKEN` 中有 token 才能與閘道器通�
 在 macOS 上，自動連線（`claudeCode.systemEnv`）也遵循相同解析邏輯，因此在 `ocx` 之外直接啟動的
 `claude` 行為一致。該檔案是代理啟動或你儲存設定時重新整理的快照，而 `ocx claude` 則一律即時解析。
 
+## Claude Desktop 模式：閘道（預設）與第一方
+
+在儀表板的 **Claude → Desktop → 連線模式**，或透過
+`ocx claude desktop apply --first-party|--gateway` 選擇互斥的模式。
+
+### 閘道（預設）
+
+新安裝預設套用閘道設定檔：包含聊天分頁在內的整個應用程式都使用 OpenCodex。
+僅限 claude.ai 的功能無法使用。舊版 `--static`、`--hybrid` 和 `--discovery-only`
+選項也會選擇閘道。
+
+### 第一方（自行選擇）
+
+:::caution[帳號風險]
+第一方模式會讓你的 Claude 訂閱流量經過本機攔截代理。
+Anthropic 可能認為這違反其條款並停用你的帳號。預設模式是閘道；
+只有接受這項風險時才選擇第一方模式。
+:::
+
+Desktop 維持 claude.ai 登入，聊天、連接器和遠端控制仍可使用。OpenCodex 只在
+`~/.claude/settings.json`（支援 `CLAUDE_CONFIG_DIR`）的 `env` 中寫入 `HTTPS_PROXY`
+與 `NODE_EXTRA_CA_CERTS`。Code 分頁啟動的 Claude Code、子代理及獨立的 `claude` CLI
+經過本機代理；其他 `api.anthropic.com` 路徑會轉送給 Anthropic。CA 不會安裝到作業系統
+信任儲存區，只有讀取 `NODE_EXTRA_CA_CERTS` 的 Node 程序會信任它。
+
+模式儲存在 `claudeCode.desktopMode`。先前明確套用第一方模式或在此版本之前套用的安裝
+會保留第一方模式；現有閘道安裝也維持不變。沒有明確設定時，依序檢查 OpenCodex 擁有的
+已選閘道項目、儲存的閘道指紋、`settings.json` 中屬於 OpenCodex 的第一方設定；
+都沒有時採用閘道。目錄同步和模型清單更新絕不會在已解析為第一方模式的安裝上
+寫入閘道設定檔。若 `claudeCode.intercept.enabled: false`，現有第一方安裝的套用操作
+會以 `intercept_disabled` 拒絕，新安裝則套用閘道。不會覆寫其他代理的設定。
+切換模式後請完全結束並重新開啟 Desktop。
+
+### Picker 模式：在第一方 Code 分頁顯示 opencodex 模型
+
+Picker 模式是第一方模式的一部分。在 macOS 上選擇第一方時預設開啟；設定
+`claudeCode.intercept.picker: false` 後會保持關閉。它會修改第一方 Desktop 的 Code 分頁模型選擇器，
+依名稱列出可用的 opencodex 模型。首次開啟時，macOS 可能會要求你在登入鑰匙圈中信任本機憑證授權單位。
+該授權單位限制為 `claude.ai` 及其子網域；這個提示是對該本機 CA 的一次性信任步驟。
+
+Picker 模式開啟期間，Claude Desktop 會透過 OpenCodex 存取網路。如果 OpenCodex 停止，Desktop 會離線，
+直到你完全重新啟動 Desktop 或關閉 Picker 模式。使用 `ocx claude desktop picker status` 查看狀態，
+使用 `ocx claude desktop picker trust` 重複信任步驟，或使用 `ocx claude desktop picker off` 關閉。
+儀表板的 **Claude → Desktop** 也有相同的切換開關。選取 Picker 設定檔後，請完全結束並重新開啟 Claude Desktop。
+
+Picker 模式屬於第一方模式，因此[第一方帳號風險](#第一方自行選擇)同樣適用。
+
 ## Claude Desktop 設定檔
+
+只有閘道模式會將以下設定檔寫入 Desktop。
 
 Claude Desktop 使用與 Claude Code 分開的設定檔。在儀表板開啟 **Claude → Desktop**，可把每條
 可用路由放到四個系列之一：Opus、Fable、Sonnet 或 Haiku。新設定檔中所有路由一開始都在 Opus。
@@ -125,7 +174,8 @@ ocx claude desktop export <path|->
 ocx claude desktop import <path> [--apply]
 ```
 
-`ocx claude desktop` 與 `apply` 都會把目前設定檔寫入 Claude Desktop。`show` 提供可讀摘要；加上
+`ocx claude desktop` 與 `apply` 會套用選定模式：第一方寫入 Claude Code 代理環境變數，
+閘道則寫入 Desktop 設定檔。`show` 提供可讀摘要；加上
 `--json` 方便腳本使用。`export -` 會把帶版本的 JSON 寫到標準輸出。Import 會在儲存前驗證完整
 檔案，因此無效檔案不會改動目前設定檔。加上 `--apply` 可在匯入有效設定檔後立即寫入 Desktop。
 `none` 僅適用於空系列；每個非空系列都必須保留一個預設。
@@ -193,6 +243,33 @@ Desktop 設定檔、模型家族分組及預設值由 hub 管理。在 hub 上�
 本次別名修改不解決 [#3719](https://github.com/lidge-jun/opencodex/issues/3719) 中獨立的 `thinking` / `redacted_thinking` 重播與提示快取請求。
 只有代理存取憑證不會啟用原生 Anthropic 透傳，但經過轉換的 Anthropic 路由仍可使用提示快取。
 重播保真與快取命中率比較仍是獨立工作。
+
+### 在 Desktop Code 分頁使用 opencodex 模型（第一方綁定）
+
+在第一方模式中，Code 分頁的模型選擇器屬於 claude.ai：其中的項目（Opus 5.5、Sonnet 5、
+Haiku 4.5 以及 **More models** 下的舊模型）來自你的帳號，任何本機設定都無法新增 opencodex
+項目。OpenCodex 在每個請求中收到的是選擇器裡的 Anthropic 模型 ID，因此改為把選擇器項目綁定到
+opencodex 路由：
+
+```bash
+ocx claude desktop bind claude-sonnet-4-6 xai/grok-4.7
+ocx claude desktop bind claude-opus-4-6 native/gpt-6-sol
+ocx claude desktop unbind claude-opus-4-6
+```
+
+也可以在儀表板中透過 **Claude → Desktop → Code 分頁模型綁定** 完成同樣操作。綁定之後，在
+Code 分頁選擇 **Sonnet 4.6** 時會由 `xai/grok-4.7` 回應。選擇器仍顯示 Anthropic 名稱，且
+Claude Code 的系統提示仍會把模型介紹為那個 Claude 模型，所以建議選擇平時不用的項目
+（**More models** 中的項目是不錯的候選）。綁定於下一個請求即生效，無需重新啟動 Desktop。
+
+- 路由使用 Desktop 路由記法：`provider/model`，原生 OpenAI 池使用 `native/<slug>`。路由必須
+  是儀表板中列為可用的路由。
+- 帶日期的選擇器 ID（`claude-haiku-4-5-20251001`）會匹配無日期的綁定（`claude-haiku-4-5`），
+  `[1m]` 和快速模式選擇也遵循同一綁定。
+- 綁定保存在 `claudeCode.intercept.modelMap` 中，僅適用於經由本機攔截代理的 Claude Code 流量：
+  第一方模式下的 Desktop Code 分頁和獨立的 `claude` CLI。`ocx claude` 工作階段和公開的
+  `/v1/messages` 端點會忽略綁定；全域 `claudeCode.modelMap` 仍然處處生效，同一 ID 時綁定優先。
+- `ocx claude desktop status --json` 在 `firstParty.modelBindings` 中報告目前生效的綁定。
 
 ### 金鑰輪換、復原與中斷連線
 

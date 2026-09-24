@@ -24,6 +24,7 @@ import { resolveAlias, claudeCodeNativeAlias, legacyAliasForNative } from "../cl
 import { recordDesktopRequest } from "../claude/desktop-health";
 import { stripOneMillionMarker } from "../claude/context-windows";
 import { captureClaudeInbound } from "../claude/inbound-debug";
+import { claudeCodeForIngress } from "../claude/intercept/model-bindings";
 import { analyzeClaudeCompatibility, isClaudeCompatibilityMode } from "../claude/compatibility";
 import {
   applyReplayRefusalClientHeaders,
@@ -85,6 +86,11 @@ import {
 } from "./fast-row";
 
 type Rec = Record<string, unknown>;
+
+/** Which listener a Claude Messages request arrived on. Only the intercept ingress honours bindings. */
+export interface ClaudeIngressOptions {
+  claudeIntercept?: boolean;
+}
 
 /**
  * Decode a Claude selector that may carry the fast marker.
@@ -197,8 +203,9 @@ function wantsNativePassthrough(
   config: OcxConfig,
   requestPolicy: RequestPolicyView,
   model: unknown,
+  cc: OcxConfig["claudeCode"] = config.claudeCode,
 ): model is string {
-  if (config.claudeCode?.nativePassthrough === false) return false;
+  if (cc?.nativePassthrough === false) return false;
   if (typeof model !== "string" || !/^(claude|anthropic)/i.test(model)) return false;
   // Authorization and x-api-key both belong to the upstream on this branch. An exposed listener
   // therefore requires the dedicated admission header even though the routed Messages surface
@@ -209,7 +216,8 @@ function wantsNativePassthrough(
   }
   if (!hasAnthropicNativeCredential(req, config)) return false;
   // An alias or modelMap hit means the user asked for a ROUTED model: translate instead.
-  return resolveInboundModel(model, config.claudeCode) === model;
+  // `cc` carries first-party intercept bindings for requests on the claude-intercept ingress.
+  return resolveInboundModel(model, cc) === model;
 }
 
 function shouldForwardNativeHeader(name: string, value: string, config: OcxConfig): boolean {
@@ -678,11 +686,12 @@ export async function handleClaudeMessages(
   logCtx: RequestLogContext,
   logIds?: { requestId: string; start: number; turnAdmissionLease?: AdmissionLease; admission?: DataPlaneAdmission },
   requestPolicy: RequestPolicyView = config,
+  ingress: ClaudeIngressOptions = {},
 ): Promise<Response> {
   const translatorBudget = createTranslatorBudget();
   try {
     return finalizeTranslatorBudgetResponse(
-      await handleClaudeMessagesWithBudget(req, config, logCtx, translatorBudget, logIds, requestPolicy),
+      await handleClaudeMessagesWithBudget(req, config, logCtx, translatorBudget, logIds, requestPolicy, ingress),
       translatorBudget,
     );
   } catch (error) {
@@ -704,6 +713,7 @@ async function handleClaudeMessagesWithBudget(
   translatorBudget: TranslatorBudget,
   logIds?: { requestId: string; start: number; turnAdmissionLease?: AdmissionLease; admission?: DataPlaneAdmission },
   requestPolicy: RequestPolicyView = config,
+  ingress: ClaudeIngressOptions = {},
 ): Promise<Response> {
   logCtx.surface = "claude";
   const disabled = claudeInboundDisabled(config);
@@ -711,6 +721,8 @@ async function handleClaudeMessagesWithBudget(
     if (logIds) addFinalRequestLog(logIds.requestId, logIds.start, logCtx, 403, { closeReason: "non_stream" });
     return disabled;
   }
+  // Model resolution reads this view; every other claudeCode setting keeps reading `config`.
+  const cc = claudeCodeForIngress(config.claudeCode, ingress.claudeIntercept === true);
 
   let anthropicBody: unknown;
   let internalBody: Rec;
@@ -739,7 +751,7 @@ async function handleClaudeMessagesWithBudget(
       }
     }
     if (isRec(anthropicBody) && typeof anthropicBody.model === "string") {
-      anthropicBody.model = decodeFablePickerAlias(anthropicBody.model, config.claudeCode);
+      anthropicBody.model = decodeFablePickerAlias(anthropicBody.model, cc);
     }
     if (isRec(anthropicBody) && typeof anthropicBody.model === "string") {
       requestedModel = anthropicBody.model;
@@ -750,7 +762,7 @@ async function handleClaudeMessagesWithBudget(
       ({ fastRow, effortRow } = parseSyntheticRowId(
         requestedModel,
         config,
-        () => decodeClaudeFastSelector(requestedModel, config.claudeCode),
+        () => decodeClaudeFastSelector(requestedModel, cc),
       ));
       if (effortRow) {
         anthropicBody.model = effortRow.baseId;
@@ -764,7 +776,7 @@ async function handleClaudeMessagesWithBudget(
       "messages",
       anthropicBody,
       isRec(anthropicBody) && typeof anthropicBody.model === "string"
-        ? resolveInboundModel(anthropicBody.model, config.claudeCode)
+        ? resolveInboundModel(anthropicBody.model, cc)
         : undefined,
       req.headers.get("anthropic-beta") ?? undefined,
     );
@@ -785,7 +797,7 @@ async function handleClaudeMessagesWithBudget(
     // caller's body with the caller's credential and never runs the Anthropic adapter, so the
     // proxy-owned `speed` + beta (anthropic-speed wire) and its usage.speed observation would be
     // silently skipped. Translation reaches the adapter, which owns both.
-    if (!effortRow && !fastRow && isRec(anthropicBody) && wantsNativePassthrough(req, config, requestPolicy, anthropicBody.model)) {
+    if (!effortRow && !fastRow && isRec(anthropicBody) && wantsNativePassthrough(req, config, requestPolicy, anthropicBody.model, cc)) {
       return await anthropicNativePassthrough(req, config, logCtx, logIds, anthropicBody, "/v1/messages");
     }
     // Capture source semantics before effort rewriting or translation drops fields.
@@ -821,7 +833,7 @@ async function handleClaudeMessagesWithBudget(
       };
       delete anthropicBody.thinking;
     }
-    const translation = anthropicToResponsesTranslation(anthropicBody, config.claudeCode, translatorBudget);
+    const translation = anthropicToResponsesTranslation(anthropicBody, cc, translatorBudget);
     internalBody = translation.body;
     // The Anthropic translator builds its body from model/input/store/stream plus sampling
     // fields only, so the caller intent is applied to the TRANSLATED body rather than the
@@ -1253,9 +1265,11 @@ export async function handleClaudeCountTokens(
   req: Request,
   config: OcxConfig,
   requestPolicy: RequestPolicyView = config,
+  ingress: ClaudeIngressOptions = {},
 ): Promise<Response> {
   const disabled = claudeInboundDisabled(config);
   if (disabled) return disabled;
+  const cc = claudeCodeForIngress(config.claudeCode, ingress.claudeIntercept === true);
 
   let body: unknown;
   const translatorBudget = createTranslatorBudget();
@@ -1287,20 +1301,20 @@ export async function handleClaudeCountTokens(
       model = stripOneMillionMarker(countRoute);
       raw.model = model;
     }
-    model = decodeFablePickerAlias(model, config.claudeCode);
+    model = decodeFablePickerAlias(model, cc);
     raw.model = model;
     // Fast-only: count_tokens never parsed an effort row, so it must not start. It returns a
     // token estimate and sends no tier, so only the IDENTITY is corrected - without this the
     // synthetic id reaches native passthrough as a model Anthropic has never heard of.
     const countFastRow = parseFastOnlyRowId(
-      config, () => decodeClaudeFastSelector(model, config.claudeCode),
+      config, () => decodeClaudeFastSelector(model, cc),
     );
     if (countFastRow) {
       model = countFastRow.baseId;
       raw.model = model;
     }
-    captureClaudeInbound("count_tokens", raw, resolveInboundModel(model, config.claudeCode), req.headers.get("anthropic-beta") ?? undefined);
-    if (wantsNativePassthrough(req, config, requestPolicy, model)) {
+    captureClaudeInbound("count_tokens", raw, resolveInboundModel(model, cc), req.headers.get("anthropic-beta") ?? undefined);
+    if (wantsNativePassthrough(req, config, requestPolicy, model, cc)) {
       return await anthropicNativePassthrough(req, config, { model, provider: "anthropic-native", surface: "claude" }, undefined, raw, "/v1/messages/count_tokens");
     }
     const inputTokens = estimateClaudeRequestTokens(raw, model);

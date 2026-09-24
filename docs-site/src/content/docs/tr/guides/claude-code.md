@@ -145,7 +145,62 @@ görüntüdür; `ocx claude` ise her zaman canlı olarak çözümler.
 
 ## Sistem ortamı entegrasyonu (macOS)
 
+## Claude Desktop modları: ağ geçidi (varsayılan) ve first-party
+
+Birbirini dışlayan modlardan birini **Claude → Desktop → Bağlantı modu** bölümünden veya
+`ocx claude desktop apply --first-party|--gateway` komutuyla seçin.
+
+### Ağ geçidi (varsayılan)
+
+Yeni kurulumlarda ağ geçidi profili uygulanır; Chat sekmesi dâhil tüm uygulama OpenCodex'i
+kullanır. Yalnızca claude.ai üzerinden sunulan özellikler kullanılamaz. Eski `--static`,
+`--hybrid` ve `--discovery-only` bayrakları da ağ geçidini seçer.
+
+### First-party (isteğe bağlı)
+
+:::caution[Hesap riski]
+First-party modunda Claude aboneliğinizin trafiği yerel bir müdahale vekilinden geçer.
+Anthropic bunu kullanım koşullarının ihlali sayıp hesabınızı askıya alabilir. Varsayılan mod
+ağ geçididir; bu riski kabul ediyorsanız first-party modunu seçin.
+:::
+
+Desktop claude.ai oturumunu korur; Chat, bağlayıcılar ve uzaktan kontrol çalışmaya devam eder.
+OpenCodex yalnızca `~/.claude/settings.json` dosyasındaki (`CLAUDE_CONFIG_DIR` desteklenir)
+`env` alanına `HTTPS_PROXY` ve `NODE_EXTRA_CA_CERTS` yazar. Code sekmesinin başlattığı
+Claude Code, alt ajanları ve bağımsız `claude` CLI yerel vekilden geçer; diğer
+`api.anthropic.com` yolları Anthropic'e iletilir. CA, işletim sisteminin güven deposuna
+kurulmaz; yalnızca `NODE_EXTRA_CA_CERTS` okuyan Node süreçleri ona güvenir.
+
+Mod `claudeCode.desktopMode` içinde saklanır. First-party modunu açıkça veya bu sürümden önce
+uygulayan kurulumlar bu modu korur; mevcut ağ geçidi de korunur. Açık mod yoksa önce OpenCodex'e
+ait seçili ağ geçidi satırı, sonra kayıtlı ağ geçidi parmak izi, ardından `settings.json`
+içindeki OpenCodex'e ait first-party ayarları değerlendirilir; hiçbiri yoksa ağ geçidi seçilir.
+Katalog eşitlemesi ve model listesi güncellemesi, first-party kurulumunun üstüne ağ geçidi
+profili yazmaz. `claudeCode.intercept.enabled: false` olduğunda mevcut first-party kurulumunda
+apply işlemi `intercept_disabled` ile reddedilir; yeni kurulum ağ geçidini uygular. Başka bir
+vekilin ayarları üzerine yazılmaz. Mod değiştirince Desktop'ı tamamen kapatıp yeniden açın.
+
+### Picker modu: first-party Code sekmesinde opencodex modelleri
+
+Picker modu first-party modunun bir parçasıdır. macOS'ta first-party seçildiğinde varsayılan olarak
+açıktır; `claudeCode.intercept.picker: false` ayarlanırsa kapalı kalır. First-party Desktop'ın Code
+sekmesindeki model seçiciyi değiştirerek kullanılabilir opencodex modellerini adlarıyla listeler.
+İlk etkinleştirmede macOS, giriş anahtar zincirinde yerel bir sertifika yetkilisine güvenmenizi isteyebilir.
+Bu yetkili `claude.ai` ve alt alan adlarıyla sınırlıdır; iletişim kutusu bu yerel CA için tek seferlik güven
+adımıdır.
+
+Picker modu açıkken Claude Desktop ağa OpenCodex üzerinden çıkar. OpenCodex durursa Desktop, tamamen yeniden
+başlatılana veya picker modu kapatılana kadar çevrimdışı kalır. Durumu `ocx claude desktop picker status`
+ile görün, güven adımını `ocx claude desktop picker trust` ile tekrarlayın veya `ocx claude desktop picker off`
+ile kapatın. Aynı açma-kapama denetimi **Claude → Desktop** kontrol panelinde de bulunur. Picker profili
+seçildikten sonra Claude Desktop'ı tamamen kapatıp yeniden açın.
+
+Picker modu first-party'nin parçasıdır; bu nedenle [first-party hesap riski](#first-party-isteğe-bağlı)
+aynı şekilde geçerlidir.
+
 ## Claude Desktop profili
+
+Bu profil yalnızca ağ geçidi modunda Desktop'a yazılır.
 
 Claude Desktop, Claude Code'dan ayrı bir profil kullanır. Mevcut her rotayı dört
 aileden birine (Opus, Fable, Sonnet veya Haiku) yerleştirmek için kontrol
@@ -173,7 +228,8 @@ ocx claude desktop export <path|->
 ocx claude desktop import <path> [--apply]
 ```
 
-`ocx claude desktop` ve `apply`, geçerli profili Claude Desktop'a yazar. `show`
+`ocx claude desktop` ve `apply` seçili modu uygular: first-party Claude Code vekilinin
+ortam ayarlarını, ağ geçidi ise Desktop profilini yazar. `show`
 okunabilir bir özet sunar; betikler için `--json` ekleyin. `export -`, standart
 çıktıya sürümlenmiş JSON yazar. İçe aktarma, kaydetmeden önce dosyanın tamamını
 doğrular, böylece geçersiz bir dosya geçerli profili değiştirmeden bırakır.
@@ -199,6 +255,38 @@ Yeni rotalar varsayılan olarak Opus ailesine gider, ancak bir rotayı taşımak
 çağırdığı sağlayıcıyı veya modeli değiştirmez. Eski uygulama bayrakları
 `--static`, `--hybrid` ve `--discovery-only` mevcut betikler için kullanılabilir
 durumda kalır.
+
+### Desktop Code sekmesinden opencodex modellerini kullanma (first-party bağlantıları)
+
+First-party modunda Code sekmesinin model seçici claude.ai'ye aittir: satırları (Opus 5.5,
+Sonnet 5, Haiku 4.5 ve **More models** altındaki eski modeller) hesabınızdan gelir ve hiçbir yerel
+ayar opencodex satırı ekleyemez. OpenCodex'e ulaşan, her istekte seçicinin Anthropic model
+kimliğidir; bu yüzden bir seçici satırını bir opencodex rotasına bağlarsınız:
+
+```bash
+ocx claude desktop bind claude-sonnet-4-6 xai/grok-4.7
+ocx claude desktop bind claude-opus-4-6 native/gpt-6-sol
+ocx claude desktop unbind claude-opus-4-6
+```
+
+veya kontrol panelinde **Claude → Desktop → Code sekmesi model bağlantıları**'nı kullanın. Bundan
+sonra Code sekmesinde **Sonnet 4.6** seçildiğinde istek `xai/grok-4.7` tarafından sunulur. Seçicide
+Anthropic etiketi görünmeye devam eder ve Claude Code'un sistem istemi modelin kendisine hâlâ o
+Claude modeli olduğunu söyler; bu yüzden normalde kullanmadığınız satırları tercih edin
+(**More models** girdileri iyi adaylardır). Bağlantılar bir sonraki istekte geçerli olur; Desktop'ı
+yeniden başlatmak gerekmez.
+
+- Rotalar Desktop rota sözlüğünü kullanır: `provider/model` veya yerel OpenAI havuzu için
+  `native/<slug>`. Rota, kontrol panelinde kullanılabilir olarak listelenen bir rota olmalıdır.
+- Tarihli bir seçici kimliği (`claude-haiku-4-5-20251001`) tarihsiz bir bağlantıyla
+  (`claude-haiku-4-5`) eşleşir; `[1m]` ve hızlı mod seçimleri de aynı bağlantıyı izler.
+- Bağlantılar `claudeCode.intercept.modelMap`'te saklanır ve yalnızca yerel intercept proxy'sinden
+  geçen Claude Code trafiğine uygulanır: first-party modundaki Desktop Code sekmesi ve bağımsız
+  `claude` CLI'si. `ocx claude` oturumları ve genel `/v1/messages` uç noktası bunları yok sayar;
+  genel `claudeCode.modelMap` her yerde geçerli olmaya devam eder ve aynı kimlik için bağlantı
+  ona üstün gelir.
+- `ocx claude desktop status --json`, geçerli bağlantıları `firstParty.modelBindings` altında
+  raporlar.
 
 ## Sistem Ortamı Entegrasyonu
 

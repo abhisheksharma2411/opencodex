@@ -152,6 +152,10 @@ export const MANAGEMENT_ROUTES: readonly ManagementRoute[] = [
   { method: "POST", path: "/api/anthropic/reset-grants/consume", module: "server/management/anthropic-reset-grant-routes", mutates: true, exempt: { reason: "session-only", why: "Spending a Claude reset grant requires the gui-session principal (anthropic-reset-grant-routes.ts handleConsume); the admin token is refused." } },
   { method: "PUT", path: "/api/claude-code", module: "server/management/agent-settings-routes", mutates: true },
   { method: "PUT", path: "/api/claude-desktop", module: "server/management/agent-settings-routes", mutates: true },
+  { method: "PUT", path: "/api/claude-desktop/first-party-bindings", module: "server/management/agent-settings-routes", mutates: true },
+  // server/management/claude-desktop-picker-routes
+  { method: "GET", path: "/api/claude-desktop/picker", module: "server/management/claude-desktop-picker-routes", mutates: false },
+  { method: "PUT", path: "/api/claude-desktop/picker", module: "server/management/claude-desktop-picker-routes", mutates: true },
   { method: "PUT", path: "/api/codex-auth/features/default-mode-request-user-input", module: "server/management/agent-settings-routes", mutates: true },
   { method: "PUT", path: "/api/effort-caps", module: "server/management/agent-settings-routes", mutates: true },
   { method: "PUT", path: "/api/grok/selection", module: "server/management/agent-settings-routes", mutates: true },

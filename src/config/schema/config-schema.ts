@@ -60,6 +60,7 @@ import { OPENAI_CODEX_PROVIDER_ID } from "../../providers/openai-tiers";
 import { modelAutoCompactTokenLimitsConfigError } from "../../providers/auto-compact-budget";
 import { hasFastWireCapabilityConflict } from "../../providers/fastwire";
 import { parseDesktopProfile } from "../../claude/desktop-profile";
+import { isInterceptBindingId, isInterceptBindingRoute } from "../../claude/intercept/model-bindings";
 import { DEFAULT_APP_OWNED_MEMORY_BUDGET_BYTES, MAX_APP_OWNED_MEMORY_BUDGET_MB, MIN_APP_OWNED_MEMORY_BUDGET_MB } from "../../lib/app-owned-memory";
 
 export const configSchema = z.object({
@@ -284,12 +285,28 @@ export const configSchema = z.object({
       if (!intercept || typeof intercept !== "object" || Array.isArray(intercept)) {
         ctx.addIssue({ code: "custom", path: ["claudeCode", "intercept"], message: "intercept must be an object" });
       } else {
-        const { enabled, port } = intercept as { enabled?: unknown; port?: unknown };
+        const { enabled, port, picker, modelMap } = intercept as { enabled?: unknown; port?: unknown; picker?: unknown; modelMap?: unknown };
         if (enabled !== undefined && typeof enabled !== "boolean") {
           ctx.addIssue({ code: "custom", path: ["claudeCode", "intercept", "enabled"], message: "intercept.enabled must be a boolean" });
         }
+        if (picker !== undefined && typeof picker !== "boolean") {
+          ctx.addIssue({ code: "custom", path: ["claudeCode", "intercept", "picker"], message: "intercept.picker must be a boolean" });
+        }
         if (port !== undefined && (typeof port !== "number" || !Number.isInteger(port) || port < 1 || port > 65535)) {
           ctx.addIssue({ code: "custom", path: ["claudeCode", "intercept", "port"], message: "intercept.port must be an integer between 1 and 65535" });
+        }
+        if (modelMap !== undefined) {
+          if (!modelMap || typeof modelMap !== "object" || Array.isArray(modelMap)) {
+            ctx.addIssue({ code: "custom", path: ["claudeCode", "intercept", "modelMap"], message: "intercept.modelMap must be an object of picker id to route" });
+          } else {
+            for (const [id, route] of Object.entries(modelMap as Record<string, unknown>)) {
+              if (!isInterceptBindingId(id)) {
+                ctx.addIssue({ code: "custom", path: ["claudeCode", "intercept", "modelMap", id], message: "intercept.modelMap keys must be claude- picker model ids" });
+              } else if (!isInterceptBindingRoute(route)) {
+                ctx.addIssue({ code: "custom", path: ["claudeCode", "intercept", "modelMap", id], message: "intercept.modelMap values must be non-empty routes without whitespace" });
+              }
+            }
+          }
         }
       }
     }
