@@ -297,12 +297,14 @@ freeform call echoed without its `</function>` close counts as complete once
   | --- | --- |
   | `data:` URL | `inline_data` with the data URL's own media type |
   | YouTube watch URL (`youtube.com`, `youtu.be`, `m.`/`music.`/`-nocookie` variants) | `file_data.file_uri` |
-  | `https://generativelanguage.googleapis.com/v1beta/files/<id>` | `file_data.file_uri` |
+  | `https://generativelanguage.googleapis.com/<version>/files/<id>` — the Files API resource form, where `<version>` is `v1`, `v1beta` or `v1alpha` | `file_data.file_uri` |
 
   Any other remote URL is kept as the text marker `[video: <url>]`, because the adapter has no
   media type for it and no evidence Gemini will fetch it. The allowlist is matched on the parsed
   URL's host and path over HTTPS — not on a substring — so a look-alike host does not become a
-  `file_data` reference the proxy asks Gemini to fetch. `file_data` carries `file_uri` only; no
+  `file_data` reference the proxy asks Gemini to fetch. The path is anchored at the start, so the
+  resumable-upload endpoint (`/upload/<version>/files/<id>`) is *not* accepted: it is not a
+  readable resource, and `file_data.file_uri` asks Gemini to dereference what it is given. `file_data` carries `file_uri` only; no
   guessed `mime_type` is attached.
 
 - **Inline image output:** when the model is one of the explicit image-capable chat IDs
