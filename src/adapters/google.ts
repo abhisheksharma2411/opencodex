@@ -267,8 +267,12 @@ function geminiFetchableVideoUri(url: string): string | null {
   ]);
   if (youtubeHosts.has(host)) return url;
 
-  // https://generativelanguage.googleapis.com/v1beta/files/<id>
-  if (host === "generativelanguage.googleapis.com" && /\/files\/[^/]+$/.test(parsed.pathname)) {
+  // The Files API resource form, https://generativelanguage.googleapis.com/v1beta/files/<id>.
+  // Anchored at the start so the resumable-upload endpoint (/upload/v1beta/files/<id>) does
+  // not match: that URL is not a readable resource, and passing it as `file_data.file_uri`
+  // would have Gemini dereference something it cannot read. The version segment stays loose
+  // because this service is reachable as v1, v1beta and v1alpha.
+  if (host === "generativelanguage.googleapis.com" && /^\/v1[a-z0-9]*\/files\/[^/]+$/.test(parsed.pathname)) {
     return url;
   }
 

@@ -260,6 +260,10 @@ describe("google adapter — Chat Completions video input", () => {
       "https://youtube.com.evil.test/watch?v=x",
       "https://notyoutube.com/watch?v=x",
       "https://generativelanguage.googleapis.com.evil.test/v1beta/files/abc",
+      // The resumable-upload endpoint, not the resource: Gemini cannot read it back.
+      "https://generativelanguage.googleapis.com/upload/v1beta/files/abc",
+      // A files path nested under something else is not the resource form either.
+      "https://generativelanguage.googleapis.com/v1beta/tunedModels/x/files/abc",
       "http://www.youtube.com/watch?v=x",
     ]) {
       const responsesBody = chatCompletionsToResponsesBody({
